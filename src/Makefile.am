@@ -1,7 +1,8 @@
 MCS_FLAGS = -debug
 ASSEMBLY = LicenseVerifier.dll
 SOURCES = \
-	$(srcdir)/LicenseVerifierPlugin.cs
+	$(srcdir)/LicenseVerifierPlugin.cs \
+	$(srcdir)/LicenseVerifierConfigPage.cs
 
 plugindir = $(PLUGINDIR)
 plugin_SCRIPTS = $(ASSEMBLY) $(ASSEMBLY).mdb

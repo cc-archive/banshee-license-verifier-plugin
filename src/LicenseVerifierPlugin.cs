@@ -83,10 +83,10 @@ namespace Banshee.Plugins.LicenseVerifier
             Globals.Library.TrackAdded -= OnLibraryTrackAdded;
         }
         
-//        public override Gtk.Widget GetConfigurationWidget()
-//        {            
-//            return new LicenseVerifierConfigPage(this);
-//        }
+        public override Gtk.Widget GetConfigurationWidget()
+        {            
+            return new LicenseVerifierConfigPage(this);
+        }
         
         // ----------------------------------------------------
 
@@ -122,7 +122,7 @@ namespace Banshee.Plugins.LicenseVerifier
 
         internal void RescanLibrary()
         {
-            Globals.Library.Db.Query("UPDATE Tracks SET LicenseVerifyStatus = 0");
+            Globals.Library.Db.Query("UPDATE TrackLicenses SET LicenseVerifyStatus = 0");
             ScanLibrary();
         }
                 
@@ -157,7 +157,7 @@ namespace Banshee.Plugins.LicenseVerifier
                 
                 IDataReader reader = Globals.Library.Db.Query(
                     @"SELECT TrackID 
-                        FROM Tracks 
+                        FROM TrackLicenses 
                         WHERE LicenseVerifyStatus IS NULL
                             OR LicenseVerifyStatus = 0"
                 );
