@@ -153,14 +153,12 @@ namespace Banshee.Plugins.LicenseVerifier
                 }
                 
                 plugin.OnScanStarted();
-                //Console.WriteLine("Scanning library for tracks to update");
                 
                 IDataReader reader = Globals.Library.Db.Query(
                     @"SELECT TrackID 
-                        FROM TrackLicenses 
-                        WHERE LicenseVerifyStatus IS NULL
-                            OR LicenseVerifyStatus = 0"
-                );
+                      FROM TrackLicenses 
+                      WHERE LicenseVerifyStatus IS NULL
+                      OR LicenseVerifyStatus = 0");
                 
                 while(reader.Read()) {
                     Scheduler.Schedule(new ProcessTrackJob(plugin, Convert.ToInt32(reader["TrackID"])));
@@ -168,19 +166,12 @@ namespace Banshee.Plugins.LicenseVerifier
                 
                 reader.Dispose();
                 
-                //Console.WriteLine("Done scanning library");
                 plugin.OnScanEnded();
             }
         }
         
         private class ProcessTrackJob : IJob
         {
-            private const string LICENSES_STRING = "licenses/";
-            private const int LICENSES_LENGTH = 9;
-            private const string HTTP_STRING = "http://";
-            private const string VERIFY_STRING = "verify at ";
-            private const int VERIFY_LENGTH = 10;
-        
             private LibraryTrackInfo track;
             private int track_id;
             private LicenseVerifierPlugin plugin;
@@ -215,95 +206,23 @@ namespace Banshee.Plugins.LicenseVerifier
                     return;
                 }
                 
-                track.LicenseVerifyStatus = VerifyLicense(track);
-                
+                VerifyLicense(track);
                 track.Save();
             }
             
-            public static LicenseVerifyStatus VerifyLicense(TrackInfo track)
+            private static void VerifyLicense(TrackInfo track)
             {
-                try {
-                    /* Step 1: Not complete license claim */
-                    if(!FullLicenseClaim(track))
-                        return LicenseVerifyStatus.Failure;
-                
-                    /* Step 2: Verify license */
-                    string verified_license_uri = null;
-                    if(Verifier.VerifyLicense (track.LicenseUri, track.Uri.AbsolutePath,
-                                               new Uri (track.MetadataUri)))
-                        verified_license_uri = track.LicenseUri;
-                    else
-                        return LicenseVerifyStatus.Failure;
+                /* Step 1: Not complete license claim */
+                if(track.LicenseUri == null || track.MetadataUri == null) {
+                    track.LicenseVerifyStatus = LicenseVerifyStatus.NoAttempt;
+                    return;
+                }
 
-                    /* Step 3: Store license attribute string in track metadata */
-                    track.License = GetLicenseAttributes(verified_license_uri);
-                    return LicenseVerifyStatus.Success;
-                } catch(LicenseParseException e) {
-                    Console.WriteLine(e);
-                    return LicenseVerifyStatus.Failure;
-                }
-            }
-            
-            private static bool FullLicenseClaim(TrackInfo track)
-            {
-                if(track.Copyright == null) {
-                    if(track.LicenseUri == null || track.MetadataUri == null) {
-                        return false;
-                    }
-                } else {
-                    track.LicenseUri = ParseLicenseUri(track.Copyright);
-                    track.MetadataUri = ParseMetadataUri(track.Copyright);
-                }
-                return true;
-            }
-            
-            private static string GetLicenseAttributes(string data)
-            {
-                int licenses_index = data.ToLower().IndexOf(LICENSES_STRING);
-                if(licenses_index <= 0) {
-                    throw new LicenseParseException("No attributes were found in Copyright tag.");
-                }
-                
-                int attribute_index = licenses_index + LICENSES_LENGTH;
-                return data.Substring(attribute_index, data.IndexOf('/', attribute_index) - attribute_index);
-            }
-            
-            private static string ParseLicenseUri(string data)
-            {
-                int verify_index = (data.ToLower()).IndexOf(VERIFY_STRING);
-                if(verify_index <= 0) {
-                    throw new LicenseParseException("No metadata was found in Copyright tag while parsing license URL.");    
-                }
-                
-                int http_index = (data.ToLower()).LastIndexOf(HTTP_STRING, verify_index);
-                if(http_index <= 0) {
-                    throw new LicenseParseException("No license was found in Copyright tag.");
-                }
-                
-                /* The -1 is because LastIndexOf adds 1 for arg test */
-                return data.Substring(http_index, (verify_index - http_index) - 1);
-            }
-
-            private static string ParseMetadataUri(string data)
-            {
-                int verify_index = data.ToLower().IndexOf(VERIFY_STRING);
-                if(verify_index <= 0) {
-                    throw new LicenseParseException("No metadata was found in Copyright tag at parsing metadata URL.");
-                }
-                
-                int metadata_index = verify_index + VERIFY_LENGTH;
-                return data.Substring(metadata_index, data.Length - (metadata_index));
-            }
-        }
-        
-        public class LicenseParseException : ApplicationException
-        {
-            public LicenseParseException()
-            {
-            }
-            
-            public LicenseParseException(string m) : base(m)
-            {
+                /* Step 2: Verify license */
+                if(!Verifier.VerifyLicense(track.LicenseUri, track.Uri.AbsolutePath, new Uri (track.MetadataUri)))
+                    track.LicenseVerifyStatus = LicenseVerifyStatus.Invalid;
+                else
+                    track.LicenseVerifyStatus = LicenseVerifyStatus.Valid;
             }
         }
     }
